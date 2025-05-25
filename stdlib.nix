@@ -1,6 +1,6 @@
 {
+  system,
   lib,
-  buildPlatform,
   go,
   builder,
   buildGoLibrary,
@@ -18,7 +18,7 @@ let
     ;
 
   specFile = derivation {
-    inherit (buildPlatform) system;
+    inherit system;
     name = "std-spec";
 
     __structuredAttrs = true;
@@ -78,7 +78,7 @@ pkgs
 
   std =
     derivation {
-      inherit (buildPlatform) system;
+      inherit system;
       name = "std-obj";
 
       __structuredAttrs = true;

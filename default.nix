@@ -1,10 +1,6 @@
-/**
-  Support for compiling Go packages, which can be used as builders in Nix.
-*/
-
 {
+  system,
   lib,
-  buildPlatform,
   go,
   useCaDerivations ? false,
 }@pkgs:
@@ -21,20 +17,15 @@ in
 rec {
   internal = {
     bootstrap = import ./bootstrap/default.nix {
-      inherit lib buildPlatform go;
+      inherit system lib go;
       inherit buildGoBinary buildGoLibrary;
     };
 
     stdlib = import ./stdlib.nix {
-      inherit lib buildPlatform go;
+      inherit system lib go;
       inherit builder buildGoLibrary;
       inherit (internal.bootstrap.stage2.stdlib) spec;
       inherit useCaDerivations;
-    };
-
-    cp = buildGoLibrary {
-      packagePath = "untitled/util/cp";
-      srcs = [ ./internal/util/cp/cp.go ];
     };
 
     derivation = buildGoLibrary {
@@ -121,7 +112,7 @@ rec {
     in
     derivation (
       {
-        inherit (buildPlatform) system;
+        inherit system;
         name = builtins.replaceStrings [ "/" ] [ "_" ] "${packagePath}";
 
         __structuredAttrs = true;
@@ -247,7 +238,7 @@ rec {
     in
     derivation (
       {
-        inherit (buildPlatform) system;
+        inherit system;
 
         __structuredAttrs = true;
         __contentAddressed = useCaDerivations;

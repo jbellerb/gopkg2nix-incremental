@@ -1,6 +1,6 @@
 {
+  system,
   lib,
-  buildPlatform,
   go,
   buildGoBinary,
   buildGoLibrary,
@@ -14,7 +14,7 @@ in
 rec {
   stage1 = {
     builder = derivation {
-      inherit (buildPlatform) system;
+      inherit system;
       name = "builder-stage1";
 
       __contentAddressed = useCaDerivations;
@@ -50,7 +50,7 @@ rec {
 
   stage2 = {
     stdlib = import ../stdlib.nix {
-      inherit lib buildPlatform go;
+      inherit system lib go;
       inherit (stage1) builder;
       inherit buildGoLibrary;
     };
