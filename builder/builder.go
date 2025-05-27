@@ -1,4 +1,7 @@
-// builder compiles go "build scripts" into Nix-compatible builders.
+// builder is a wrapper around the Go compiler and linker for being called as a
+// derivation builder within Nix. Builder translates the arguments passed to it
+// from Nix with `__structuredAttrs` into the appropriate command line flags and
+// calls the compiler or linker as appropriate.
 package main
 
 import (

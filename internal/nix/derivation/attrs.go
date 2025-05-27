@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	// The name of the builder script.
-	Name = "runGoScript"
+	// The name of the builder executable.
+	Name = "builder"
 
 	// Raw JSON of the derivation attributes. Provided from Nix via
 	// __structuredAttrs.
@@ -45,7 +45,7 @@ func init() {
 	if file == "" {
 		log.Fatal(`failed to locate $NIX_ATTRS_JSON_FILE
 
-  Is this script being called as a builder for a Derivation?`)
+  Is this builder being called as a builder for a derivation?`)
 	}
 
 	var err error
@@ -59,7 +59,7 @@ func init() {
 	NativeBuildInputs = attrs.NativeBuildInputs
 }
 
-// GetAtters loads and parses structured attributes from the Nix derivation
+// GetAttrs loads and parses structured attributes from the Nix derivation
 // inputs. The provided type should support Unmarshalling from JSON.
 func GetAttrs[T any]() T {
 	var attrs T

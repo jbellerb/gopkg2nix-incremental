@@ -14,9 +14,9 @@
 // advantage of its caching from Nix. Even though builder doesn't use modules,
 // module definitions can be written for builder and its dependencies. With a
 // "go.work" pointing to all of them, Go's build system can build a functional
-// copy of builder, but how would Go know to use it? These scripts all require
+// copy of builder, but how would Go know to use it? These builders all require
 // __structuredAttrs which disables setting environment variables (like GOWORK)
-// in a derivation. Instead, we will use another script. A small one, executed
+// in a derivation. Instead, we will use another builder. A small one, executed
 // without structured attributes. That way Nix sets GOWORK and all the other
 // required environment variables, which can then be passed to "go build".
 //

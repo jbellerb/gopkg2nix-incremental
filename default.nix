@@ -183,7 +183,7 @@ rec {
         output of `buildGoLibrary`.
 
     : `packagePath` (String; optional, default: `main`)
-      : The name of package the script lives in. Usually this shouldn't be
+      : The name of package the binary lives in. Usually this shouldn't be
         changed, but it is available if you need to import internal packages.
 
     : `importMap` (AttrSet; optional, default: `{}`)
