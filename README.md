@@ -65,12 +65,15 @@ toolchain.
           pkgs = import nixpkgs {
             inherit system;
             overlays = [ inputs.gopkg2nix-incremental.overlays.default ];
+            # optionally enable `ca-derivations` for better caching
+            config.contentAddressedGoPackages = true;
           };
 
           # or if not using an overlay
           goLib = import inputs.gopkg2nix-incremental {
             inherit system;
             inherit (pkgs) lib go;
+            useCaDerivations = true;
           };
 
         in
@@ -132,6 +135,8 @@ Create a `flake.nix` for compiling the binary:
           pkgs = import nixpkgs {
             inherit system;
             overlays = [ inputs.gopkg2nix-incremental.overlays.default ];
+            # optionally enable `ca-derivations` for better caching
+            config.contentAddressedGoPackages = true;
           };
 
         in
