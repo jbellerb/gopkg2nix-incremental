@@ -94,13 +94,13 @@ for compiling and linking executable packages.
 
 Both functions take a `srcs` argument which refers to a list of source files
 (either Go, Assembly, or Headers. `go:embed` is not directly supported). These
-source files can refer to packages specified by the `inputs` argument, a list of
-dependencies. The Go standard library is automatically included as a dependency
-unless `noStd = true`. All dependencies in this list must be the result of
-a call to `buildGoLibrary`. Finally, `buildGoLibrary` takes the argument
-`packagePath` for the path used in Go when importing that package. Equivalently,
-`buildGoLibrary` takes the argument `name` for the name of the derivation and
-the output binary.
+source files can refer to packages specified by the `imports` argument, a
+list of dependencies. The Go standard library is automatically included as a
+dependency unless `noStd = true`. All dependencies in this list must be the
+result of a call to `buildGoLibrary`. Finally, `buildGoLibrary` takes the
+argument `packagePath` for the path used in Go when importing that package.
+Equivalently, `buildGoLibrary` takes the argument `name` for the name of the
+derivation and the output binary.
 
 <details>
 <summary>Example: Building an executable with an external dependency</summary>
