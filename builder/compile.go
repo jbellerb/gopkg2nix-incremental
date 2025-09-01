@@ -186,6 +186,15 @@ func packageTrimPath(srcs []string, importPath, out string) string {
 	return trimPath.String() + out + "=>"
 }
 
+// pkgPath provides the correct name to give for the "-p" argument, based on the
+// package import path and name.
+func pkgPath(importPath, name string) string {
+	if name == "main" {
+		return "main"
+	}
+	return importPath
+}
+
 // findIncludes returns a sorted list of include directories for the header
 // sources.
 func findIncludes(sdkInclude string, hSrcs []string) []string {
@@ -381,17 +390,12 @@ func (c *Compilation) CompilePackage(
 	cmd.Stderr = os.Stderr
 	cmd.Env = []string{"CGO_ENABLED=0"}
 
-	pkgPath := c.ImportPath
-	if c.Name == "main" {
-		pkgPath = "main"
-	}
-
 	cmd.Args = append(
 		cmd.Args,
 		"-o", exportData,
 		"-linkobj", obj,
 		"-trimpath", c.trimPath,
-		"-p", pkgPath,
+		"-p", pkgPath(c.ImportPath, c.Name),
 		"-lang", c.SDK.CompatVersion,
 	)
 
@@ -479,7 +483,11 @@ func (c *Compilation) AssembleSources(
 	cmd.Stderr = os.Stderr
 	cmd.Env = []string{"CGO_ENABLED=0"}
 
-	cmd.Args = append(cmd.Args, "-p", c.ImportPath, "-trimpath", c.trimPath)
+	cmd.Args = append(
+		cmd.Args,
+		"-p", pkgPath(c.ImportPath, c.Name),
+		"-trimpath", c.trimPath,
+	)
 	for _, dir := range c.includes {
 		cmd.Args = append(cmd.Args, "-I", dir)
 	}

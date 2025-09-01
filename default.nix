@@ -7,6 +7,7 @@
 
 let
   inherit (lib)
+    getExe
     mapAttrs
     mergeAttrsList
     optional
@@ -304,4 +305,175 @@ rec {
         "srcs"
       ])
     );
+
+  /**
+    Check that all tests for a package pass.
+
+    The returned derivation has an extra attribute, `test`, for running
+    different test variations with `nix run`.
+
+    To run a specific set of tests, run
+
+    ```
+    nix run .#package.test -- -test.run=<REGEX>
+    ```
+
+    ## Benchmarks and fuzzing
+
+    To run the benchmark tests, run
+
+    ```
+    nix run .#package.test -- -test.bench=.
+    ```
+
+    The `-test.bench` argument is also a regular expression pattern if only a
+    subset of benchmarks need to be run.
+
+    To start fuzz tests, run
+
+    ```
+    nix run .#package.test -- -test.fuzzcachedir=$(mktemp -d) -test.fuzz=.
+    ```
+
+    The `-test.fuzz` argument is also a regular expression pattern. Note that
+    compiling with coverage instrumentation is not currently supported, so
+    fuzzing will be inefficient.
+
+    # Type
+
+    ```
+    testGoLibrary
+      :: { importPath :: String
+         , srcs :: [String | Path]
+         , imports :: [Derivation] ? []
+         , packageName :: String
+         , importMap :: AttrSet ? {}
+         , compileFlags :: [String] ? []
+         , linkFlags :: [String] ? []
+         , go :: Derivation ? pkgs.go
+         }
+      -> Derivation
+    ```
+
+    # Inputs
+
+    An attribute set with the following arguments
+
+    : `importPath` (String; _required_)
+      : The import path of the package. This is what will appear for the
+        "import" line when using the library.
+
+    : `srcs` ([String | Path]; _required_)
+      : Paths or store paths to the test source files of the package, including
+        external tests. This must be individual files, not a directory of files.
+
+    : `imports` ([Derivation]; optional, default: `[]`)
+      : Other libraries depended on by the package. These must be the output of
+        `buildGoLibrary`.
+
+    : `packageName` (String; optional, default: `baseNameOf importPath`)
+      : The name of package. This is what is specified in the "package"
+        statement and is used as the prefix for the libraries exports. By
+        convention, this is the last element of the import path.
+
+    : `importMap` (AttrSet; optional, default: `{}`)
+      : Overrides for mapping import paths to Go packages. Usually this is only
+        needed for vendored packages. The set should map from a string of the
+        import path to a string of the real package path.
+
+    : `compileFlags` ([String]; optional, default: `[]`)
+      : Any extra flags to pass to the compiler.
+
+    : `linkFlags` ([String]; optional, default: `[]`)
+      : Any extra flags to pass to the linker.
+
+    : `go` (Derivation; optional, default: `pkgs.go`)
+      : The go compiler to use for building the binary. Note that the standard
+        library will still be compiled against `pkgs.go` unless `noStd` is set.
+  */
+  testGoLibrary =
+    {
+      importPath,
+      srcs,
+      imports ? [ ],
+      packageName ? builtins.baseNameOf importPath,
+      compileFlags ? [ ],
+      go ? pkgs.go,
+      ...
+    }@args:
+    let
+      compileArgs = {
+        inherit
+          importPath
+          srcs
+          imports
+          packageName
+          compileFlags
+          go
+          ;
+      } // optionalAttrs (args ? "importMap") { inherit (args) importMap; };
+      internal = buildGoLibrary compileArgs;
+      external = buildGoLibrary (
+        compileArgs
+        // {
+          importPath = importPath + "_test";
+          imports = imports ++ [ internal ];
+          packageName = packageName + "_test";
+        }
+      );
+
+      name = builtins.replaceStrings [ "/" ] [ "_" ] external.importPath;
+      main = derivation {
+        inherit system;
+        name = name + "main";
+
+        __structuredAttrs = true;
+        __contentAddressed = useCaDerivations;
+
+        builder = "${builder}/bin/builder";
+        args = [ "test" ];
+
+        sdk = "${go}/share/go";
+
+        inherit (internal) importPath srcs packageName;
+      };
+
+      testPath = importPath + ".test";
+      runner = buildGoBinary (
+        {
+          importPath = testPath;
+          srcs = [ "${main}/test.go" ];
+          imports = [
+            internal
+            external
+          ];
+        }
+        // (builtins.removeAttrs args [
+          "importPath"
+          "imports"
+          "meta"
+          "name"
+          "noStd"
+          "packageName"
+          "passthru"
+          "srcs"
+        ])
+      );
+    in
+    passthruDerivation {
+      inherit system name;
+
+      builder = getExe runner;
+      args = [
+        "-nix.output"
+        "out"
+      ];
+
+      passthru =
+        (args.passthru or { })
+        // {
+          test = runner;
+        }
+        // optionalAttrs (args ? "meta") { inherit (args) meta; };
+    };
 }

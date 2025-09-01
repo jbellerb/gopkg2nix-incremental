@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -32,6 +33,30 @@ func (sdk *GoSDK) ShortVersion() string {
 		return sdk.Version
 	}
 	return sdk.Version[0:dot]
+}
+
+// Compatible returns if the given "major.minor" is supported by the SDK.
+//
+// This function may panic if version is not properly formatted.
+func (sdk *GoSDK) Compatible(version string) bool {
+	pair := strings.Split(version, ".")
+	sdkPair := strings.Split(sdk.ShortVersion(), ".")
+
+	// major versions must match
+	major, err1 := strconv.ParseUint(pair[0], 10, 16)
+	sdkMajor, err2 := strconv.ParseUint(sdkPair[0], 10, 16)
+	if err1 != nil || err2 != nil || major != sdkMajor {
+		return false
+	}
+
+	// minor version can be any less than or equal to the SDK
+	minor, err1 := strconv.ParseUint(pair[1], 10, 16)
+	sdkMinor, err2 := strconv.ParseUint(sdkPair[1], 10, 16)
+	if err1 != nil || err2 != nil || minor > sdkMinor {
+		return false
+	}
+
+	return true
 }
 
 // Include returns the "pkg/include" directory of the SDK.

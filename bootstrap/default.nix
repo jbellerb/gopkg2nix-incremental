@@ -86,12 +86,16 @@ rec {
             ../builder/package.go
             ../builder/sdk.go
             ../builder/stdlib.go
+            ../builder/test.go
           ];
           imports = with stage2; [
             stage2.derivation
+            stdlib.cmp
             stdlib."encoding/json"
             stdlib.fmt
+            stdlib."go/ast"
             stdlib."go/build"
+            stdlib."go/doc"
             stdlib."go/parser"
             stdlib."go/token"
             stdlib.io
@@ -105,6 +109,7 @@ rec {
             stdlib.strconv
             stdlib.strings
             stdlib.sync
+            stdlib."text/template"
           ];
 
           packageName = "main";

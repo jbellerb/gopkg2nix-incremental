@@ -64,6 +64,8 @@ func main() {
 		link(sdk)
 	case "stdlib":
 		stdlib(sdk)
+	case "test":
+		test(sdk)
 	default:
 		log.Fatalf("unknown command \"%s\"\n%s", command, usage)
 	}
