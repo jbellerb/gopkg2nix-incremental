@@ -22,6 +22,7 @@ Subcommands:
 
 type StdlibPackage struct {
 	ImportPath string
+	Name       string
 
 	// These are all omitempty to match the output of the Go compiler.
 

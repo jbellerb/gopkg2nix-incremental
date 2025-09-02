@@ -77,8 +77,7 @@ rec {
     builder =
       let
         obj = buildGoLibrary {
-          packagePath = "main";
-
+          packagePath = "builder";
           srcs = [
             ../builder/builder.go
             ../builder/compile.go
@@ -108,6 +107,7 @@ rec {
             stdlib.sync
           ];
 
+          packageName = "main";
           noStd = true;
           builder = "${stage1.builder}/bin/builder";
         };

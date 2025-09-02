@@ -160,19 +160,19 @@ func ResolveMetaPackages(
 	return nil
 }
 
-// listFileImports parses a .go file and returns a list of all package paths
-// imported by the file.
-func listFileImports(path string) ([]string, error) {
+// ScanFileImports parses a .go file and returns the package name and a list of
+// all package paths imported by the file.
+func ScanFileImports(path string) (string, []string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	defer file.Close()
 
 	fset := token.NewFileSet()
 	parsed, err := parser.ParseFile(fset, path, file, parser.ImportsOnly)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	var imports []string
@@ -184,58 +184,11 @@ func listFileImports(path string) ([]string, error) {
 				fset.Position(pkg.Pos()),
 				err,
 			)
-			return nil, err
+			return "", nil, err
 		}
 
 		imports = append(imports, unquoted)
 	}
 
-	return imports, nil
-}
-
-// ScanImports searches through a list of files and resolves each import to
-// its export data. If any imports were rewritten by the import map, an import
-// for the original import path pointing to the rewritten path is added to the
-// second list of imports. Both returned lists are already sorted.
-func ScanImports(
-	srcs []string,
-	pkgs map[string]string,
-	importMap map[string]string,
-) ([]Import, []Import, error) {
-	imports := make([]Import, 0)
-	rewrites := make([]Import, 0)
-
-	found := make(map[string]struct{})
-	for _, path := range srcs {
-		fileImports, err := listFileImports(path)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		for _, importPath := range fileImports {
-			if _, ok := found[importPath]; ok {
-				continue
-			}
-
-			found[importPath] = struct{}{}
-			if FilterInternalPackages(importPath) {
-				continue
-			}
-
-			if truePath := importMap[importPath]; truePath != "" {
-				rewrites = append(rewrites, Import{truePath, importPath})
-				importPath = truePath
-			}
-			if storePath, ok := pkgs[importPath]; ok {
-				imports = append(imports, Import{storePath, importPath})
-			} else {
-				return nil, nil, &ImportError{Import: importPath, Parent: path}
-			}
-		}
-	}
-
-	SortImports(imports)
-	SortImports(rewrites)
-
-	return imports, rewrites, nil
+	return parsed.Name.Name, imports, nil
 }

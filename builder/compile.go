@@ -18,6 +18,7 @@ type EmbedCfg struct {
 }
 
 type CompileAttrs struct {
+	PackageName string
 	PackagePath string
 	Srcs        []string
 	Imports     map[string]string
@@ -59,19 +60,87 @@ func sortSrcs(srcs []string) (goSrcs, hSrcs, sSrcs []string, err error) {
 	return
 }
 
+// srcFile is a .go source that is a member of the package being compiled.
+type srcFile struct {
+	path    string
+	imports []string
+}
+
+// scanImports parses a list of .go files and returns the list of files that are
+// a member of a specific package, as well as the packages those files import.
+func scanImports(name string, srcs []string) ([]srcFile, error) {
+	var files []srcFile
+
+	for _, path := range srcs {
+		pkgName, fileImports, err := ScanFileImports(path)
+		if err != nil {
+			return nil, err
+		}
+		if pkgName != name {
+			fmt.Printf("filtering package %s, expected %s\n", pkgName, name)
+			continue
+		}
+
+		files = append(files, srcFile{path: path, imports: fileImports})
+	}
+
+	return files, nil
+}
+
+// resolveImports searches through a list of files' imports and resolves each
+// import to its export data. If any imports were rewritten by the import map,
+// an import for the original import path pointing to the rewritten path is
+// added to the second list of imports. Both returned lists are already sorted.
+func resolveImports(
+	files []srcFile,
+	deps map[string]string,
+	importMap map[string]string,
+) ([]Import, []Import, error) {
+	imports := make([]Import, 0)
+	rewrites := make([]Import, 0)
+
+	found := make(map[string]struct{})
+	for _, file := range files {
+		for _, importPath := range file.imports {
+			if _, ok := found[importPath]; ok {
+				continue
+			}
+			found[importPath] = struct{}{}
+
+			if FilterInternalPackages(importPath) {
+				continue
+			}
+
+			if truePath := importMap[importPath]; truePath != "" {
+				rewrites = append(rewrites, Import{truePath, importPath})
+				importPath = truePath
+			}
+			if storePath, ok := deps[importPath]; ok {
+				imports = append(imports, Import{storePath, importPath})
+			} else {
+				return nil, nil, &ImportError{
+					Import: importPath,
+					Parent: file.path,
+				}
+			}
+		}
+	}
+
+	SortImports(imports)
+	SortImports(rewrites)
+
+	return imports, rewrites, nil
+}
+
 // compileImportCfg creates the importcfg necessary for the Go compiler and
 // returns the path to it, as well as a list of imports for writing the metadata
 // later.
 func compileImportCfg(
-	srcs []string,
+	files []srcFile,
 	deps map[string]string,
 	importMap map[string]string,
 ) (string, []Import, error) {
-	if err := ResolveMetaPackages(deps, importMap); err != nil {
-		return "", nil, err
-	}
-
-	imports, rewrites, err := ScanImports(srcs, deps, importMap)
+	imports, rewrites, err := resolveImports(files, deps, importMap)
 	if err != nil {
 		return "", nil, err
 	}
@@ -200,7 +269,7 @@ func appendArchive(sdk *GoSDK, archive string, objs ...string) error {
 // hasForwardDecl contains hard-coded exceptions for packages in the standard
 // library with forward declarations.
 func hasForwardDecl(importPath string) bool {
-	// List taken from src/cmd/go/internal/work/gc.go
+	// List taken from go/src/cmd/go/internal/work/gc.go
 	switch importPath {
 	case "bytes", "internal/poll", "net", "os", "runtime/metrics":
 		fallthrough
@@ -228,6 +297,7 @@ func compileEmbedCfg(cfg *EmbedCfg) (string, error) {
 // A Compilation represents a call to the Go compiler.
 type Compilation struct {
 	SDK        *GoSDK
+	Name       string
 	ImportPath string
 	Srcs       []string
 	Imports    map[string]string
@@ -284,8 +354,16 @@ func (c *Compilation) CompilePackage(
 		return fmt.Errorf("failed to enumerate source files: %w", err)
 	}
 
+	if err := ResolveMetaPackages(c.Imports, c.ImportMap); err != nil {
+		return err
+	}
+
+	files, err := scanImports(c.Name, c.goSrcs)
+	if err != nil {
+		return err
+	}
 	c.importCfg, c.imports, err = compileImportCfg(
-		c.goSrcs,
+		files,
 		c.Imports,
 		c.ImportMap,
 	)
@@ -303,12 +381,17 @@ func (c *Compilation) CompilePackage(
 	cmd.Stderr = os.Stderr
 	cmd.Env = []string{"CGO_ENABLED=0"}
 
+	pkgPath := c.ImportPath
+	if c.Name == "main" {
+		pkgPath = "main"
+	}
+
 	cmd.Args = append(
 		cmd.Args,
 		"-o", exportData,
 		"-linkobj", obj,
 		"-trimpath", c.trimPath,
-		"-p", c.ImportPath,
+		"-p", pkgPath,
 		"-lang", c.SDK.CompatVersion,
 	)
 
@@ -354,7 +437,9 @@ func (c *Compilation) CompilePackage(
 		"-pack",
 		"--",
 	)
-	cmd.Args = append(cmd.Args, c.goSrcs...)
+	for _, file := range files {
+		cmd.Args = append(cmd.Args, file.path)
+	}
 
 	fmt.Fprintln(os.Stderr, cmd)
 	if err := cmd.Run(); err != nil {
@@ -429,6 +514,7 @@ func compile(sdk *GoSDK) {
 	name := filepath.Base(attrs.PackagePath)
 	compilation := &Compilation{
 		SDK:        sdk,
+		Name:       attrs.PackageName,
 		ImportPath: attrs.PackagePath,
 		Srcs:       attrs.Srcs,
 		Imports:    attrs.Imports,

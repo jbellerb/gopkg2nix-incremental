@@ -60,6 +60,7 @@ rec {
       :: { packagePath :: String
          , srcs :: [String | Path]
          , imports :: [Derivation] ? []
+         , packageName :: String ? baseNameOf packagePath
          , importMap :: AttrSet ? {}
          , compileFlags :: [String] ? []
          , go :: Derivation ? pkgs.go
@@ -73,8 +74,8 @@ rec {
     An attribute set with the following arguments
 
     : `packagePath` (String; _required_)
-      : The name of package. This is what will appear for the "import" when
-        using the library.
+      : The import path of the package. This is what will appear for the
+        "import" line when using the library.
 
     : `srcs` ([String | Path]; _required_)
       : Paths or store paths to the source files of the package. This must be
@@ -83,6 +84,12 @@ rec {
     : `imports` ([Derivation]; optional, default: `[]`)
       : Other libraries depended on by the package. These must also be the
         output of `buildGoLibrary`.
+
+    : `packageName` (String; optional, default: `baseNameOf packagePath`)
+      : The name of package. This is what is specified in the "package"
+        statement and is used as the prefix for the libraries exports. By
+        convention, this is the last element of the import path and does not
+        need to be set.
 
     : `importMap` (AttrSet; optional, default: `{}`)
       : Overrides for mapping import paths to Go packages. Usually this is only
@@ -105,6 +112,7 @@ rec {
       packagePath,
       srcs,
       imports ? [ ],
+      packageName ? builtins.baseNameOf packagePath,
       compileFlags ? [ ],
       go ? pkgs.go,
       noStd ? false,
@@ -138,7 +146,7 @@ rec {
             value = dep.export;
           }) (imports ++ optional (!noStd) internal.stdlib.std)
         );
-        inherit compileFlags;
+        inherit packageName compileFlags;
 
         passthru =
           (args.passthru or { })
@@ -153,6 +161,7 @@ rec {
         "imports"
         "meta"
         "noStd"
+        "packageName"
         "passthru"
       ])
     );
@@ -164,9 +173,9 @@ rec {
 
     ```
     buildGoBinary
-      :: { name :: String
+      :: { name :: String ? baseNameOf packagePath
          , srcs :: [String | Path] ? obj.srcs
-         , packagePath :: String ? "main"
+         , packagePath :: String ? ""
          , imports :: [Derivation] ? []
          , importMap :: AttrSet ? {}
          , compileFlags :: [String] ? []
@@ -183,19 +192,21 @@ rec {
 
     An attribute set with the following arguments
 
-    : `name` (String; _required_)
-      : Name of the output derivation.
+    : `name` (String; optional, default: `baseNameOf packagePath`)
+      : Name of the output derivation. This must be set unless `packagePath` is
+        set.
 
     : `srcs` ([String | Path]; optional, default: `obj.srcs`)
       : Paths or store paths to the source files of the package. This must be
-        individual files, not a directory of files.
+        individual files, not a directory of files. All files must be in the
+        package "main".
 
     : `imports` ([Derivation]; optional, default: `[]`)
       : Other libraries depended on by the package. These must also be the
         output of `buildGoLibrary`.
 
-    : `packagePath` (String; optional, default: `main`)
-      : The name of package the binary lives in. Usually this shouldn't be
+    : `packagePath` (String; optional, default: `""`)
+      : The import path of the binary package. Usually this shouldn't be
         changed, but it is available if you need to import internal packages.
 
     : `importMap` (AttrSet; optional, default: `{}`)
@@ -223,9 +234,7 @@ rec {
   */
   buildGoBinary =
     {
-      name,
       imports ? [ ],
-      packagePath ? "main",
       compileFlags ? [ ],
       linkFlags ? [ ],
       go ? pkgs.go,
@@ -233,24 +242,30 @@ rec {
       ...
     }@args:
     let
-      main =
+      name =
+        if args ? "packagePath" then args.name or (builtins.baseNameOf args.packagePath) else args.name;
+      obj =
         args.obj or (buildGoLibrary (
           {
+            name = name + "_obj";
+
             inherit
-              packagePath
               imports
               compileFlags
               go
               noStd
               ;
             inherit (args) srcs;
+
+            packagePath = args.packagePath or "";
+            packageName = "main";
           }
           // optionalAttrs (args ? "importMap") { inherit (args) importMap; }
         ));
     in
     passthruDerivation (
       {
-        inherit system;
+        inherit system name;
 
         __structuredAttrs = true;
         __contentAddressed = useCaDerivations;
@@ -260,10 +275,10 @@ rec {
 
         sdk = "${go}/share/go";
 
-        inherit (main) packagePath;
-        main = main.export;
-        inherit name linkFlags;
-        deps = mapAttrs (_: dep: dep.lib) (main.deps // { "${main.packagePath}" = main; });
+        inherit (obj) packagePath;
+        main = obj.export;
+        inherit linkFlags;
+        deps = mapAttrs (_: dep: dep.lib) (obj.deps // { "${obj.packagePath}" = obj; });
 
         passthru = (args.passthru or { }) // optionalAttrs (args ? "meta") { inherit (args) meta; };
       }
@@ -279,6 +294,7 @@ rec {
         "noStd"
         "obj"
         "passthru"
+        "packageName"
         "packagePath"
         "srcs"
       ])
