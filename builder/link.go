@@ -11,7 +11,6 @@ import (
 type LinkAttrs struct {
 	PackagePath string
 	Main        string
-	Name        string
 	Deps        map[string]string
 
 	LinkFlags []string
@@ -128,7 +127,10 @@ func link(sdk *GoSDK) {
 		Main: main,
 		Deps: attrs.Deps,
 	}
-	err = linkage.LinkPackage(filepath.Join(binDir, attrs.Name), attrs.LinkFlags)
+	err = linkage.LinkPackage(
+		filepath.Join(binDir, filepath.Base(attrs.PackagePath)),
+		attrs.LinkFlags,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

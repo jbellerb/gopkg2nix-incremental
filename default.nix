@@ -175,7 +175,7 @@ rec {
     buildGoBinary
       :: { name :: String ? baseNameOf packagePath
          , srcs :: [String | Path] ? obj.srcs
-         , packagePath :: String ? ""
+         , packagePath :: String ? name
          , imports :: [Derivation] ? []
          , importMap :: AttrSet ? {}
          , compileFlags :: [String] ? []
@@ -205,7 +205,7 @@ rec {
       : Other libraries depended on by the package. These must also be the
         output of `buildGoLibrary`.
 
-    : `packagePath` (String; optional, default: `""`)
+    : `packagePath` (String; optional, default: `name`)
       : The import path of the binary package. Usually this shouldn't be
         changed, but it is available if you need to import internal packages.
 
@@ -244,12 +244,15 @@ rec {
     let
       name =
         if args ? "packagePath" then args.name or (builtins.baseNameOf args.packagePath) else args.name;
+      packagePath = args.packagePath or (builtins.parseDrvName args.name).name;
+
       obj =
         args.obj or (buildGoLibrary (
           {
             name = name + "_obj";
 
             inherit
+              packagePath
               imports
               compileFlags
               go
@@ -257,7 +260,6 @@ rec {
               ;
             inherit (args) srcs;
 
-            packagePath = args.packagePath or "";
             packageName = "main";
           }
           // optionalAttrs (args ? "importMap") { inherit (args) importMap; }
@@ -280,7 +282,11 @@ rec {
         inherit linkFlags;
         deps = mapAttrs (_: dep: dep.lib) (obj.deps // { "${obj.packagePath}" = obj; });
 
-        passthru = (args.passthru or { }) // optionalAttrs (args ? "meta") { inherit (args) meta; };
+        passthru = (args.passthru or { }) // {
+          meta = args.meta or { } // {
+            mainProgram = builtins.baseNameOf obj.packagePath;
+          };
+        };
       }
       // (builtins.removeAttrs args [
         "compileFlags"
