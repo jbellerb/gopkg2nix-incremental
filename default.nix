@@ -36,7 +36,7 @@ rec {
     };
 
     derivation = buildGoLibrary {
-      packagePath = "nix/derivation";
+      importPath = "nix/derivation";
       srcs = [
         ./internal/nix/derivation/attrs.go
         ./internal/nix/derivation/path.go
@@ -57,10 +57,10 @@ rec {
 
     ```
     buildGoLibrary
-      :: { packagePath :: String
+      :: { importPath :: String
          , srcs :: [String | Path]
          , imports :: [Derivation] ? []
-         , packageName :: String ? baseNameOf packagePath
+         , packageName :: String ? baseNameOf importPath
          , importMap :: AttrSet ? {}
          , compileFlags :: [String] ? []
          , go :: Derivation ? pkgs.go
@@ -73,7 +73,7 @@ rec {
 
     An attribute set with the following arguments
 
-    : `packagePath` (String; _required_)
+    : `importPath` (String; _required_)
       : The import path of the package. This is what will appear for the
         "import" line when using the library.
 
@@ -85,11 +85,10 @@ rec {
       : Other libraries depended on by the package. These must also be the
         output of `buildGoLibrary`.
 
-    : `packageName` (String; optional, default: `baseNameOf packagePath`)
+    : `packageName` (String; optional, default: `baseNameOf importPath`)
       : The name of package. This is what is specified in the "package"
         statement and is used as the prefix for the libraries exports. By
-        convention, this is the last element of the import path and does not
-        need to be set.
+        convention, this is the last element of the import path.
 
     : `importMap` (AttrSet; optional, default: `{}`)
       : Overrides for mapping import paths to Go packages. Usually this is only
@@ -109,10 +108,10 @@ rec {
   */
   buildGoLibrary =
     {
-      packagePath,
+      importPath,
       srcs,
       imports ? [ ],
-      packageName ? builtins.baseNameOf packagePath,
+      packageName ? builtins.baseNameOf importPath,
       compileFlags ? [ ],
       go ? pkgs.go,
       noStd ? false,
@@ -120,14 +119,14 @@ rec {
     }@args:
     let
       mergedDeps = mergeAttrsList (
-        (builtins.map (dep: dep.deps // { "${dep.packagePath}" = dep; }) imports)
+        (builtins.map (dep: dep.deps // { "${dep.importPath}" = dep; }) imports)
         ++ optional (!noStd) { std = internal.stdlib.std; }
       );
     in
     passthruDerivation (
       {
         inherit system;
-        name = builtins.replaceStrings [ "/" ] [ "_" ] packagePath;
+        name = builtins.replaceStrings [ "/" ] [ "_" ] importPath;
 
         __structuredAttrs = true;
         __contentAddressed = useCaDerivations;
@@ -142,7 +141,7 @@ rec {
         sdk = "${go}/share/go";
         imports = builtins.listToAttrs (
           builtins.map (dep: {
-            name = dep.packagePath;
+            name = dep.importPath;
             value = dep.export;
           }) (imports ++ optional (!noStd) internal.stdlib.std)
         );
@@ -173,9 +172,9 @@ rec {
 
     ```
     buildGoBinary
-      :: { name :: String ? baseNameOf packagePath
+      :: { name :: String ? baseNameOf importPath
          , srcs :: [String | Path] ? obj.srcs
-         , packagePath :: String ? name
+         , importPath :: String ? name
          , imports :: [Derivation] ? []
          , importMap :: AttrSet ? {}
          , compileFlags :: [String] ? []
@@ -192,8 +191,8 @@ rec {
 
     An attribute set with the following arguments
 
-    : `name` (String; optional, default: `baseNameOf packagePath`)
-      : Name of the output derivation. This must be set unless `packagePath` is
+    : `name` (String; optional, default: `baseNameOf importPath`)
+      : Name of the output derivation. This must be set unless `importPath` is
         set.
 
     : `srcs` ([String | Path]; optional, default: `obj.srcs`)
@@ -205,7 +204,7 @@ rec {
       : Other libraries depended on by the package. These must also be the
         output of `buildGoLibrary`.
 
-    : `packagePath` (String; optional, default: `name`)
+    : `importPath` (String; optional, default: `name`)
       : The import path of the binary package. Usually this shouldn't be
         changed, but it is available if you need to import internal packages.
 
@@ -243,8 +242,8 @@ rec {
     }@args:
     let
       name =
-        if args ? "packagePath" then args.name or (builtins.baseNameOf args.packagePath) else args.name;
-      packagePath = args.packagePath or (builtins.parseDrvName args.name).name;
+        if args ? "importPath" then args.name or (builtins.baseNameOf args.importPath) else args.name;
+      importPath = args.importPath or (builtins.parseDrvName args.name).name;
 
       obj =
         args.obj or (buildGoLibrary (
@@ -252,7 +251,7 @@ rec {
             name = name + "_obj";
 
             inherit
-              packagePath
+              importPath
               imports
               compileFlags
               go
@@ -277,14 +276,14 @@ rec {
 
         sdk = "${go}/share/go";
 
-        inherit (obj) packagePath;
+        inherit (obj) importPath;
         main = obj.export;
         inherit linkFlags;
-        deps = mapAttrs (_: dep: dep.lib) (obj.deps // { "${obj.packagePath}" = obj; });
+        deps = mapAttrs (_: dep: dep.lib) (obj.deps // { "${obj.importPath}" = obj; });
 
         passthru = (args.passthru or { }) // {
           meta = args.meta or { } // {
-            mainProgram = builtins.baseNameOf obj.packagePath;
+            mainProgram = builtins.baseNameOf obj.importPath;
           };
         };
       }
@@ -292,6 +291,7 @@ rec {
         "compileFlags"
         "go"
         "importMap"
+        "importPath"
         "imports"
         "linkArgs"
         "linkFlags"
@@ -299,9 +299,8 @@ rec {
         "name"
         "noStd"
         "obj"
-        "passthru"
         "packageName"
-        "packagePath"
+        "passthru"
         "srcs"
       ])
     );

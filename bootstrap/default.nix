@@ -56,7 +56,7 @@ rec {
     };
 
     derivation = buildGoLibrary {
-      packagePath = "nix/derivation";
+      importPath = "nix/derivation";
       srcs = [
         ../internal/nix/derivation/attrs.go
         ../internal/nix/derivation/path.go
@@ -77,7 +77,7 @@ rec {
     builder =
       let
         obj = buildGoLibrary {
-          packagePath = "builder";
+          importPath = "builder";
           srcs = [
             ../builder/builder.go
             ../builder/compile.go

@@ -19,7 +19,7 @@ type EmbedCfg struct {
 
 type CompileAttrs struct {
 	PackageName string
-	PackagePath string
+	ImportPath  string
 	Srcs        []string
 	Imports     map[string]string
 	ImportMap   map[string]string
@@ -511,11 +511,11 @@ func compile(sdk *GoSDK) {
 		log.Fatal(err)
 	}
 
-	name := filepath.Base(attrs.PackagePath)
+	name := filepath.Base(attrs.ImportPath)
 	compilation := &Compilation{
 		SDK:        sdk,
 		Name:       attrs.PackageName,
-		ImportPath: attrs.PackagePath,
+		ImportPath: attrs.ImportPath,
 		Srcs:       attrs.Srcs,
 		Imports:    attrs.Imports,
 		ImportMap:  attrs.ImportMap,
@@ -535,7 +535,7 @@ func compile(sdk *GoSDK) {
 		log.Fatalf("failed to collect dependencies: %v", err)
 	}
 	pkg := &Package{
-		ImportPath: attrs.PackagePath,
+		ImportPath: attrs.ImportPath,
 		Imports:    imports,
 		Deps:       deps,
 	}

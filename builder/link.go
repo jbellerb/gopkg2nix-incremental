@@ -9,9 +9,9 @@ import (
 )
 
 type LinkAttrs struct {
-	PackagePath string
-	Main        string
-	Deps        map[string]string
+	ImportPath string
+	Main       string
+	Deps       map[string]string
 
 	LinkFlags []string
 }
@@ -117,7 +117,7 @@ func link(sdk *GoSDK) {
 		log.Fatalf("failed to create bin directory: %v", err)
 	}
 
-	main, err := LoadMetadata[Package](attrs.Main, attrs.PackagePath)
+	main, err := LoadMetadata[Package](attrs.Main, attrs.ImportPath)
 	if err != nil {
 		log.Fatalf("failed to load main module: %v", err)
 	}
@@ -128,7 +128,7 @@ func link(sdk *GoSDK) {
 		Deps: attrs.Deps,
 	}
 	err = linkage.LinkPackage(
-		filepath.Join(binDir, filepath.Base(attrs.PackagePath)),
+		filepath.Join(binDir, filepath.Base(attrs.ImportPath)),
 		attrs.LinkFlags,
 	)
 	if err != nil {

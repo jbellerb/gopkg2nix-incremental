@@ -98,7 +98,7 @@ source files can refer to packages specified by the `imports` argument, a
 list of dependencies. The Go standard library is automatically included as a
 dependency unless `noStd = true`. All dependencies in this list must be the
 result of a call to `buildGoLibrary`. Finally, `buildGoLibrary` takes the
-argument `packagePath` for the path used in Go when importing that package.
+argument `importPath` for the path used in Go when importing that package.
 Equivalently, `buildGoLibrary` takes the argument `name` for the name of the
 derivation and the output binary.
 
@@ -253,7 +253,7 @@ let
 
   goPackages = {
     "golang.org/x/text/currency" = buildGoLibrary {
-      packagePath = "golang.org/x/text/currency";
+      importPath = "golang.org/x/text/currency";
       srcs = src "golang.org/x/text" "currency" [
         "common.go"
         "currency.go"
@@ -271,7 +271,7 @@ let
     };
 
     "golang.org/x/text/internal/format" = buildGoLibrary {
-      packagePath = "golang.org/x/text/internal/format";
+      importPath = "golang.org/x/text/internal/format";
       srcs = src "golang.org/x/text" "internal/format" [
         "format.go"
         "parser.go"
@@ -280,7 +280,7 @@ let
     };
 
     "golang.org/x/text/internal/language" = buildGoLibrary {
-      packagePath = "golang.org/x/text/internal/language";
+      importPath = "golang.org/x/text/internal/language";
       srcs = src "golang.org/x/text" "internal/language" [
         "common.go"
         "compact.go"
@@ -297,7 +297,7 @@ let
     };
 
     "golang.org/x/text/internal/language/compact" = buildGoLibrary {
-      packagePath = "golang.org/x/text/internal/language/compact";
+      importPath = "golang.org/x/text/internal/language/compact";
       srcs = src "golang.org/x/text" "internal/language/compact" [
         "compact.go"
         "language.go"
@@ -309,7 +309,7 @@ let
     };
 
     "golang.org/x/text/internal/number" = buildGoLibrary {
-      packagePath = "golang.org/x/text/internal/number";
+      importPath = "golang.org/x/text/internal/number";
       srcs = src "golang.org/x/text" "internal/number" [
         "common.go"
         "decimal.go"
@@ -327,17 +327,17 @@ let
     };
 
     "golang.org/x/text/internal/stringset" = buildGoLibrary {
-      packagePath = "golang.org/x/text/internal/stringset";
+      importPath = "golang.org/x/text/internal/stringset";
       srcs = src "golang.org/x/text" "internal/stringset" [ "set.go" ];
     };
 
     "golang.org/x/text/internal/tag" = buildGoLibrary {
-      packagePath = "golang.org/x/text/internal/tag";
+      importPath = "golang.org/x/text/internal/tag";
       srcs = src "golang.org/x/text" "internal/tag" [ "tag.go" ];
     };
 
     "golang.org/x/text/language" = buildGoLibrary {
-      packagePath = "golang.org/x/text/language";
+      importPath = "golang.org/x/text/language";
       srcs = src "golang.org/x/text" "language" [
         "coverage.go"
         "doc.go"

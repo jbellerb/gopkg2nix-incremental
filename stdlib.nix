@@ -42,7 +42,7 @@ let
       name = pkg.ImportPath;
       value = buildGoLibrary (
         {
-          packagePath = pkg.ImportPath;
+          importPath = pkg.ImportPath;
           srcs = builtins.map (file: "${go}/share/go/src/${pkg.ImportPath}/${file}") (
             pkg.GoFiles or [ ] ++ pkg.HFiles or [ ] ++ pkg.SFiles or [ ]
           );
@@ -100,6 +100,6 @@ pkgs
       importMap = mergeAttrsList (builtins.map (dep: dep.importMap or { }) (builtins.attrValues pkgs));
     }
     // {
-      packagePath = "std";
+      importPath = "std";
     };
 }
