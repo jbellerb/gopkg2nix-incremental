@@ -13,6 +13,13 @@ let
     optionalAttrs
     ;
 
+  passthruDerivation =
+    {
+      passthru ? { },
+      ...
+    }@args:
+    derivation (builtins.removeAttrs args [ "passthru" ]) // passthru;
+
 in
 rec {
   internal = {
@@ -108,12 +115,11 @@ rec {
         (builtins.map (dep: dep.deps // { "${dep.packagePath}" = dep; }) imports)
         ++ optional (!noStd) { std = internal.stdlib.std; }
       );
-
     in
-    derivation (
+    passthruDerivation (
       {
         inherit system;
-        name = builtins.replaceStrings [ "/" ] [ "_" ] "${packagePath}";
+        name = builtins.replaceStrings [ "/" ] [ "_" ] packagePath;
 
         __structuredAttrs = true;
         __contentAddressed = useCaDerivations;
@@ -133,17 +139,23 @@ rec {
           }) (imports ++ optional (!noStd) internal.stdlib.std)
         );
         inherit compileFlags;
+
+        passthru =
+          (args.passthru or { })
+          // {
+            deps = mergedDeps;
+          }
+          // optionalAttrs (args ? "meta") { inherit (args) meta; };
       }
       // (builtins.removeAttrs args [
         "compileFlags"
         "go"
         "imports"
+        "meta"
         "noStd"
+        "passthru"
       ])
-    )
-    // {
-      deps = mergedDeps;
-    };
+    );
 
   /**
     Compile a Go package into a binary.
@@ -233,10 +245,10 @@ rec {
               ;
             inherit (args) srcs;
           }
-          // optionalAttrs (args ? "importMap") { importMap = args.importMap or { }; }
+          // optionalAttrs (args ? "importMap") { inherit (args) importMap; }
         ));
     in
-    derivation (
+    passthruDerivation (
       {
         inherit system;
 
@@ -252,6 +264,8 @@ rec {
         main = main.export;
         inherit name linkFlags;
         deps = mapAttrs (_: dep: dep.lib) (main.deps // { "${main.packagePath}" = main; });
+
+        passthru = (args.passthru or { }) // optionalAttrs (args ? "meta") { inherit (args) meta; };
       }
       // (builtins.removeAttrs args [
         "compileFlags"
@@ -260,10 +274,13 @@ rec {
         "imports"
         "linkArgs"
         "linkFlags"
+        "meta"
         "name"
         "noStd"
         "obj"
+        "passthru"
         "packagePath"
+        "srcs"
       ])
     );
 }
