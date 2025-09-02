@@ -18,8 +18,8 @@ var (
 
 func init() {
 	// build.Default checks the environment for CGO_ENABLED, defaulting to true.
-	// Since I don't support it, manually disable to avoid the source filter from
-	// excluding non-cgo fallback files.
+	// Since I don't support it, manually disable to avoid the source filter
+	// from excluding non-cgo fallback files.
 	Context.CgoEnabled = false
 }
 

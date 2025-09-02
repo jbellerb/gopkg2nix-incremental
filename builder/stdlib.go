@@ -93,12 +93,9 @@ func saveStdlibPackages(in io.Reader, path string) error {
 // listStdlib creates a JSON file defining every package in the standard
 // library, so Nix can produce a build plan for it.
 func listStdlib(sdk *GoSDK) {
-	out := derivation.Outputs["out"]
-	if out == "" {
-		log.Fatalf("derivation was expected to produce an output \"out\"")
-	}
-	if err := os.Mkdir(out, 0755); err != nil {
-		log.Fatalf("failed to create output directory: %v", err)
+	outDir, err := OutputPath("out")
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	cmd := sdk.RunGo("list", "-json", "std")
@@ -117,7 +114,7 @@ func listStdlib(sdk *GoSDK) {
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
-	if err := saveStdlibPackages(stdout, out); err != nil {
+	if err := saveStdlibPackages(stdout, outDir); err != nil {
 		log.Fatalf("failed to generate stdlib package list: %v", err)
 	}
 

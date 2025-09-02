@@ -25,7 +25,7 @@
 // location. there's no way to pass this value in as a command-line arg, since
 // the path's value depends on the arguments list (among other things). As that
 // can only be read through environment variables, some wrapper (shell script or
-// this) is always neccessary.
+// this) is always necessary.
 package main
 
 import (

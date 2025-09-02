@@ -59,7 +59,7 @@ func sortSrcs(srcs []string) (goSrcs, hSrcs, sSrcs []string, err error) {
 	return
 }
 
-// compileImportCfg creates the importcfg neccesary for the Go compiler and
+// compileImportCfg creates the importcfg necessary for the Go compiler and
 // returns the path to it, as well as a list of imports for writing the metadata
 // later.
 func compileImportCfg(
@@ -127,8 +127,8 @@ func findIncludes(sdkInclude string, hSrcs []string) []string {
 	for _, src := range hSrcs {
 		dir := filepath.Dir(src)
 		if strings.HasPrefix(dir, sdkInclude) {
-			// Being an assembly header in the SDK is common enough to justify a special
-			// case.
+			// Being an assembly header in the SDK is common enough to justify a
+			// special case.
 			continue
 		}
 		if _, ok := hDirs[dir]; !ok {
@@ -161,7 +161,8 @@ func symlinkArchHeaders(hFiles []string) error {
 		}
 
 		if newBase != "" {
-			if err := os.Symlink(path, filepath.Join(BuildDir(), newBase)); err != nil {
+			err := os.Symlink(path, filepath.Join(BuildDir(), newBase))
+			if err != nil {
 				return err
 			}
 		}
@@ -210,7 +211,7 @@ func hasForwardDecl(importPath string) bool {
 	}
 }
 
-// compileEmbedCfg creates the embedcfg neccesary for the Go compiler and
+// compileEmbedCfg creates the embedcfg necessary for the Go compiler and
 // returns the path to it.
 func compileEmbedCfg(cfg *EmbedCfg) (string, error) {
 	cfgPath := filepath.Join(BuildDir(), "embedcfg")

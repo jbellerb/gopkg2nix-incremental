@@ -17,7 +17,7 @@ type LinkAttrs struct {
 	LinkFlags []string
 }
 
-// linkImportCfg creates the importcfg neccesary for the Go linker and returns
+// linkImportCfg creates the importcfg necessary for the Go linker and returns
 // the path to it, as well as the resolved main package.
 func linkImportCfg(
 	main *Package,

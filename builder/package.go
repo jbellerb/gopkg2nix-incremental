@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	// MetaPackages are special import paths which represent a commonly used set of
-	// packages.
+	// MetaPackages are special import paths which represent a commonly used set
+	// of packages.
 	MetaPackages = []string{"std"}
 )
 
@@ -145,8 +145,8 @@ func ResolveMetaPackages(
 			}
 
 			for _, subPkg := range pkg.SubPackages {
-				// If a package already exists, it was declared manually by the user. It
-				// should override the declaration in the meta package.
+				// If a package already exists, it was declared manually by the
+				// user. It should override the declaration in the meta package.
 				if _, ok := pkgs[subPkg.ImportPath]; !ok {
 					pkgs[subPkg.ImportPath] = subPkg.StorePath
 				}
@@ -179,7 +179,11 @@ func listFileImports(path string) ([]string, error) {
 	for _, pkg := range parsed.Imports {
 		unquoted, err := strconv.Unquote(pkg.Path.Value)
 		if err != nil {
-			err = fmt.Errorf("parse input at %s: %v", fset.Position(pkg.Pos()), err)
+			err = fmt.Errorf(
+				"parse input at %s: %v",
+				fset.Position(pkg.Pos()),
+				err,
+			)
 			return nil, err
 		}
 
@@ -191,8 +195,8 @@ func listFileImports(path string) ([]string, error) {
 
 // ScanImports searches through a list of files and resolves each import to
 // its export data. If any imports were rewritten by the import map, an import
-// for the original import path pointing to the rewritten path is added to
-// the second list of imports. Both returned lists are already sorted.
+// for the original import path pointing to the rewritten path is added to the
+// second list of imports. Both returned lists are already sorted.
 func ScanImports(
 	srcs []string,
 	pkgs map[string]string,
