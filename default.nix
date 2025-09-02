@@ -347,6 +347,7 @@ rec {
          , srcs :: [String | Path]
          , imports :: [Derivation] ? []
          , packageName :: String
+         , data :: Path | null ? null
          , importMap :: AttrSet ? {}
          , compileFlags :: [String] ? []
          , linkFlags :: [String] ? []
@@ -370,6 +371,9 @@ rec {
     : `imports` ([Derivation]; optional, default: `[]`)
       : Other libraries depended on by the package. These must be the output of
         `buildGoLibrary`.
+
+    : `data` (Path | null; optional, default: `null`)
+      : A "testdata" directory provide to test cases.
 
     : `packageName` (String; optional, default: `baseNameOf importPath`)
       : The name of package. This is what is specified in the "package"
@@ -396,6 +400,7 @@ rec {
       importPath,
       srcs,
       imports ? [ ],
+      data ? null,
       packageName ? builtins.baseNameOf importPath,
       compileFlags ? [ ],
       go ? pkgs.go,
@@ -423,20 +428,24 @@ rec {
       );
 
       name = builtins.replaceStrings [ "/" ] [ "_" ] external.importPath;
-      main = derivation {
-        inherit system;
-        name = name + "main";
+      main = derivation (
+        {
+          inherit system;
+          name = name + "main";
 
-        __structuredAttrs = true;
-        __contentAddressed = useCaDerivations;
+          __structuredAttrs = true;
+          __contentAddressed = useCaDerivations;
 
-        builder = "${builder}/bin/builder";
-        args = [ "test" ];
+          builder = "${builder}/bin/builder";
+          args = [ "test" ];
+          outputs = [ "out" ] ++ optional (data != null) "data";
 
-        sdk = "${go}/share/go";
+          sdk = "${go}/share/go";
 
-        inherit (internal) importPath srcs packageName;
-      };
+          inherit (internal) importPath srcs packageName;
+        }
+        // optionalAttrs (data != null) { inherit data; }
+      );
 
       testPath = importPath + ".test";
       runner = buildGoBinary (
@@ -449,6 +458,7 @@ rec {
           ];
         }
         // (builtins.removeAttrs args [
+          "data"
           "importPath"
           "imports"
           "meta"
