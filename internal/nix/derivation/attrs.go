@@ -19,7 +19,7 @@ var (
 
 	// Raw JSON of the derivation attributes. Provided from Nix via
 	// __structuredAttrs.
-	AttrJson []byte
+	AttrJSON []byte
 
 	// The expected outputs of the derivation and their store paths.
 	Outputs map[string]string
@@ -49,7 +49,7 @@ func init() {
 	}
 
 	var err error
-	if AttrJson, err = os.ReadFile(file); err != nil {
+	if AttrJSON, err = os.ReadFile(file); err != nil {
 		log.Fatalf("failed to read $NIX_ATTRS_JSON_FILE: %v", err)
 	}
 
@@ -63,7 +63,7 @@ func init() {
 // inputs. The provided type should support Unmarshalling from JSON.
 func GetAttrs[T any]() T {
 	var attrs T
-	if err := json.Unmarshal(AttrJson, &attrs); err != nil {
+	if err := json.Unmarshal(AttrJSON, &attrs); err != nil {
 		log.Fatalf("failed to parse attributes: %v", err)
 	}
 	return attrs
