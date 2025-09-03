@@ -7,11 +7,6 @@ import (
 	"strings"
 )
 
-var (
-	// The memoized path string.
-	path string
-)
-
 // Path generates a colon-separated list of inputs, suitable for setting to
 // $PATH.
 func Path() string {
@@ -21,7 +16,7 @@ func Path() string {
 		if i != 0 {
 			fmt.Fprint(&b, ":")
 		}
-		fmt.Fprintf(&b, filepath.Join(dep, "bin"))
+		fmt.Fprint(&b, filepath.Join(dep, "bin"))
 	}
 
 	return b.String()
