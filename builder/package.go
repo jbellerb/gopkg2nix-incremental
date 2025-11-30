@@ -26,12 +26,34 @@ type ImportError struct {
 	Parent string
 }
 
-func (e ImportError) Error() string {
+func (e *ImportError) Error() string {
 	return fmt.Sprintf(
 		"package %s not found in the provided imports, needed by %s",
 		e.Import,
 		e.Parent,
 	)
+}
+
+// ConflictingPackageError records when a set of source files belongs to
+// multiple distinct packages.
+type ConflictingPackageError struct {
+	pkgs []string
+	srcs [][]string
+}
+
+func (e *ConflictingPackageError) Error() string {
+	var b strings.Builder
+
+	b.WriteString("found multiple packages:")
+	for i, pkgName := range e.pkgs {
+		fmt.Fprintf(&b, "\n    package \"%s\" (%s", pkgName, e.srcs[i][0])
+		for _, src := range e.srcs[i][1:] {
+			fmt.Fprintf(&b, ", %s", src)
+		}
+		b.WriteRune(')')
+	}
+
+	return b.String()
 }
 
 // FilterInternalPackages returns true if a package named importPath is an

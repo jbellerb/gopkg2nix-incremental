@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"maps"
@@ -18,12 +19,11 @@ type EmbedCfg struct {
 }
 
 type CompileAttrs struct {
-	PackageName string
-	ImportPath  string
-	Srcs        []string
-	Imports     map[string]string
-	ImportMap   map[string]string
-	EmbedCfg    *EmbedCfg
+	ImportPath string
+	Srcs       []string
+	Imports    map[string]string
+	ImportMap  map[string]string
+	EmbedCfg   *EmbedCfg
 
 	CompileFlags []string
 }
@@ -68,23 +68,38 @@ type srcFile struct {
 
 // scanImports parses a list of .go files and returns the list of files that are
 // a member of a specific package, as well as the packages those files import.
-func scanImports(name string, srcs []string) ([]srcFile, error) {
-	var files []srcFile
-
+func scanImports(srcs []string) ([]srcFile, string, error) {
+	pkgFiles := make(map[string][]srcFile)
 	for _, path := range srcs {
 		pkgName, fileImports, err := ScanFileImports(path)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		if pkgName != name {
-			fmt.Printf("filtering package %s, expected %s\n", pkgName, name)
-			continue
-		}
-
-		files = append(files, srcFile{path: path, imports: fileImports})
+		pkgFiles[pkgName] = append(
+			pkgFiles[pkgName],
+			srcFile{path: path, imports: fileImports},
+		)
 	}
 
-	return files, nil
+	if len(pkgFiles) > 1 {
+		var err ConflictingPackageError
+		for pkgName, srcs := range pkgFiles {
+			err.pkgs = append(err.pkgs, pkgName)
+			paths := make([]string, len(srcs))
+			for i, path := range srcs {
+				paths[i] = path.path
+			}
+			err.srcs = append(err.srcs, paths)
+		}
+		return nil, "", &err
+	} else {
+		// the first iteration is the only entry
+		for pkgName := range pkgFiles {
+			return pkgFiles[pkgName], pkgName, nil
+		}
+	}
+
+	return nil, "", errors.New("no Go files in package")
 }
 
 // resolveImports searches through a list of files' imports and resolves each
@@ -358,8 +373,7 @@ func (c *Compilation) CompilePackage(
 	extraArgs []string,
 ) error {
 	var err error
-	c.goSrcs, c.hSrcs, c.sSrcs, err = sortSrcs(c.Srcs)
-	if err != nil {
+	if c.goSrcs, c.hSrcs, c.sSrcs, err = sortSrcs(c.Srcs); err != nil {
 		return fmt.Errorf("failed to enumerate source files: %w", err)
 	}
 
@@ -367,8 +381,8 @@ func (c *Compilation) CompilePackage(
 		return err
 	}
 
-	files, err := scanImports(c.Name, c.goSrcs)
-	if err != nil {
+	var files []srcFile
+	if files, c.Name, err = scanImports(c.goSrcs); err != nil {
 		return err
 	}
 	c.importCfg, c.imports, err = compileImportCfg(
@@ -522,7 +536,6 @@ func compile(sdk *GoSDK) {
 	name := filepath.Base(attrs.ImportPath)
 	compilation := &Compilation{
 		SDK:        sdk,
-		Name:       attrs.PackageName,
 		ImportPath: attrs.ImportPath,
 		Srcs:       attrs.Srcs,
 		Imports:    attrs.Imports,

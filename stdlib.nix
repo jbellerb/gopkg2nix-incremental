@@ -48,7 +48,6 @@ let
           );
           imports = builtins.map (dep: pkgs."${dep}") (pkg.Imports or [ ]);
 
-          packageName = pkg.Name;
           compileFlags = [ "-std" ];
 
           noStd = true;

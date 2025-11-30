@@ -61,7 +61,6 @@ rec {
       :: { importPath :: String
          , srcs :: [String | Path]
          , imports :: [Derivation] ? []
-         , packageName :: String ? baseNameOf importPath
          , importMap :: AttrSet ? {}
          , compileFlags :: [String] ? []
          , go :: Derivation ? pkgs.go
@@ -86,11 +85,6 @@ rec {
       : Other libraries depended on by the package. These must also be the
         output of `buildGoLibrary`.
 
-    : `packageName` (String; optional, default: `baseNameOf importPath`)
-      : The name of package. This is what is specified in the "package"
-        statement and is used as the prefix for the libraries exports. By
-        convention, this is the last element of the import path.
-
     : `importMap` (AttrSet; optional, default: `{}`)
       : Overrides for mapping import paths to Go packages. Usually this is only
         needed for vendored packages. The set should map from a string of the
@@ -112,7 +106,6 @@ rec {
       importPath,
       srcs,
       imports ? [ ],
-      packageName ? builtins.baseNameOf importPath,
       compileFlags ? [ ],
       go ? pkgs.go,
       noStd ? false,
@@ -146,7 +139,7 @@ rec {
             value = dep.export;
           }) (imports ++ optional (!noStd) internal.stdlib.std)
         );
-        inherit packageName compileFlags;
+        inherit compileFlags;
 
         passthru =
           (args.passthru or { })
@@ -161,7 +154,6 @@ rec {
         "imports"
         "meta"
         "noStd"
-        "packageName"
         "passthru"
       ])
     );
@@ -259,8 +251,6 @@ rec {
               noStd
               ;
             inherit (args) srcs;
-
-            packageName = "main";
           }
           // optionalAttrs (args ? "importMap") { inherit (args) importMap; }
         ));
@@ -300,7 +290,6 @@ rec {
         "name"
         "noStd"
         "obj"
-        "packageName"
         "passthru"
         "srcs"
       ])
@@ -346,7 +335,6 @@ rec {
       :: { importPath :: String
          , srcs :: [String | Path]
          , imports :: [Derivation] ? []
-         , packageName :: String
          , data :: Path | null ? null
          , importMap :: AttrSet ? {}
          , compileFlags :: [String] ? []
@@ -375,11 +363,6 @@ rec {
     : `data` (Path | null; optional, default: `null`)
       : A "testdata" directory provide to test cases.
 
-    : `packageName` (String; optional, default: `baseNameOf importPath`)
-      : The name of package. This is what is specified in the "package"
-        statement and is used as the prefix for the libraries exports. By
-        convention, this is the last element of the import path.
-
     : `importMap` (AttrSet; optional, default: `{}`)
       : Overrides for mapping import paths to Go packages. Usually this is only
         needed for vendored packages. The set should map from a string of the
@@ -401,7 +384,6 @@ rec {
       srcs,
       imports ? [ ],
       data ? null,
-      packageName ? builtins.baseNameOf importPath,
       compileFlags ? [ ],
       go ? pkgs.go,
       ...
@@ -412,7 +394,6 @@ rec {
           importPath
           srcs
           imports
-          packageName
           compileFlags
           go
           ;
@@ -423,7 +404,6 @@ rec {
         // {
           importPath = importPath + "_test";
           imports = imports ++ [ internal ];
-          packageName = packageName + "_test";
         }
       );
 
@@ -442,7 +422,7 @@ rec {
 
           sdk = "${go}/share/go";
 
-          inherit (internal) importPath srcs packageName;
+          inherit (internal) importPath srcs;
         }
         // optionalAttrs (data != null) { inherit data; }
       );
@@ -464,7 +444,6 @@ rec {
           "meta"
           "name"
           "noStd"
-          "packageName"
           "passthru"
           "srcs"
         ])

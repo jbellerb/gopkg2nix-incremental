@@ -92,6 +92,7 @@ rec {
             stage2.derivation
             stdlib.cmp
             stdlib."encoding/json"
+            stdlib.errors
             stdlib.fmt
             stdlib."go/ast"
             stdlib."go/build"
@@ -112,7 +113,6 @@ rec {
             stdlib."text/template"
           ];
 
-          packageName = "main";
           noStd = true;
           builder = "${stage1.builder}/bin/builder";
         };
