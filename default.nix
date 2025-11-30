@@ -333,7 +333,8 @@ rec {
     ```
     testGoLibrary
       :: { importPath :: String
-         , srcs :: [String | Path]
+         , srcs :: [String | Path] ? []
+         , xsrcs :: [String | Path] ? []
          , imports :: [Derivation] ? []
          , data :: Path | null ? null
          , importMap :: AttrSet ? {}
@@ -352,9 +353,13 @@ rec {
       : The import path of the package. This is what will appear for the
         "import" line when using the library.
 
-    : `srcs` ([String | Path]; _required_)
-      : Paths or store paths to the test source files of the package, including
-        external tests. This must be individual files, not a directory of files.
+    : `srcs` ([String | Path]; optional, default: `[]`)
+      : Paths or store paths to the internal test source files of the package.
+        This must be individual files, not a directory of files.
+
+    : `xsrcs` ([String | Path]; optional, default: `[]`)
+      : Paths or store paths to the external test source files of the package.
+        This must be individual files, not a directory of files.
 
     : `imports` ([Derivation]; optional, default: `[]`)
       : Other libraries depended on by the package. These must be the output of
@@ -381,7 +386,8 @@ rec {
   testGoLibrary =
     {
       importPath,
-      srcs,
+      srcs ? [ ],
+      xsrcs ? [ ],
       imports ? [ ],
       data ? null,
       compileFlags ? [ ],
@@ -397,13 +403,15 @@ rec {
           compileFlags
           go
           ;
-      } // optionalAttrs (args ? "importMap") { inherit (args) importMap; };
+      }
+      // optionalAttrs (args ? "importMap") { inherit (args) importMap; };
       internal = buildGoLibrary compileArgs;
       external = buildGoLibrary (
         compileArgs
         // {
           importPath = importPath + "_test";
-          imports = imports ++ [ internal ];
+          srcs = xsrcs;
+          imports = imports ++ optional (srcs != [ ]) internal;
         }
       );
 
@@ -422,7 +430,8 @@ rec {
 
           sdk = "${go}/share/go";
 
-          inherit (internal) importPath srcs;
+          inherit (internal) importPath;
+          inherit srcs xsrcs;
         }
         // optionalAttrs (data != null) { inherit data; }
       );
@@ -431,11 +440,8 @@ rec {
       runner = buildGoBinary (
         {
           importPath = testPath;
-          srcs = [ "${main}/test.go" ];
-          imports = [
-            internal
-            external
-          ];
+          srcs = [ "${main}/testmain.go" ];
+          imports = optional (srcs != [ ]) internal ++ optional (xsrcs != [ ]) external;
         }
         // (builtins.removeAttrs args [
           "data"

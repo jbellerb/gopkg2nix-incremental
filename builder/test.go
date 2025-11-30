@@ -17,10 +17,10 @@ import (
 )
 
 type TestAttrs struct {
-	PackageName string
-	ImportPath  string
-	Srcs        []string
-	Data        string
+	ImportPath string
+	Srcs       []string
+	XSrcs      []string
+	Data       string
 }
 
 type importPackage struct {
@@ -200,23 +200,18 @@ func verifyTestSignature(
 // inside.
 func (t *testPackage) loadTest(
 	fset *token.FileSet,
-	importMap map[string]string,
+	pkg string,
 	path string,
-) (string, error) {
+) (string, bool, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	defer file.Close()
 
 	parsed, err := parser.ParseFile(fset, path, file, parser.ParseComments)
 	if err != nil {
-		return "", err
-	}
-
-	pkg, ok := importMap[parsed.Name.Name]
-	if !ok {
-		return "", fmt.Errorf("unexpected package name: %s", parsed.Name.Name)
+		return "", false, err
 	}
 	enable := false
 
@@ -228,7 +223,7 @@ func (t *testPackage) loadTest(
 
 		if fn.Name.Name == "TestMain" {
 			if err := verifyTestSignature(fset, fn, "M"); err != nil {
-				return "", err
+				return "", false, err
 			}
 			t.TestMain = pkg
 			enable = true
@@ -237,19 +232,19 @@ func (t *testPackage) loadTest(
 			switch {
 			case strings.HasPrefix(fn.Name.Name, "Test"):
 				if err := verifyTestSignature(fset, fn, "T"); err != nil {
-					return "", err
+					return "", false, err
 				}
 				t.Tests = append(t.Tests, tc)
 				enable = true
 			case strings.HasPrefix(fn.Name.Name, "Benchmark"):
 				if err := verifyTestSignature(fset, fn, "B"); err != nil {
-					return "", err
+					return "", false, err
 				}
 				t.Benchmarks = append(t.Benchmarks, tc)
 				enable = true
 			case strings.HasPrefix(fn.Name.Name, "Fuzz"):
 				if err := verifyTestSignature(fset, fn, "F"); err != nil {
-					return "", err
+					return "", false, err
 				}
 				t.FuzzTargets = append(t.FuzzTargets, tc)
 				enable = true
@@ -275,56 +270,54 @@ func (t *testPackage) loadTest(
 		enable = true
 	}
 
-	var parsedPath string
-	if enable {
-		parsedPath = parsed.Name.Name
-	}
-	return parsedPath, nil
+	return parsed.Name.Name, enable, nil
 }
 
 // findTestCases searches through a list of files and generates a list of test
 // cases to include in the generated package.
-func findTestCases(
+func (t *testPackage) findTestCases(
 	name string,
 	importPath string,
 	srcs []string,
-) (*testPackage, error) {
-	pkg := testPackage{ImportPath: importPath}
-	importMap := map[string]string{
-		name:           "_test",
-		name + "_test": "_xtest", // black-box tests
-	}
-	importPaths := map[string]string{
-		name:           importPath,
-		name + "_test": importPath + "_test",
-	}
+) (string, error) {
+	importPkg := importPackage{Name: name, Path: importPath}
 
 	fset := token.NewFileSet()
+	pkgsSrcs := make(map[string][]string)
 	for _, path := range srcs {
-		parsedPath, err := pkg.loadTest(fset, importMap, path)
+		parsedName, enable, err := t.loadTest(fset, name, path)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
-		if parsedPath != "" {
-			importPkg := importPackage{
-				Name: importMap[parsedPath],
-				Path: importPaths[parsedPath],
-			}
+		pkgsSrcs[parsedName] = append(pkgsSrcs[parsedName], path)
+		if enable {
 			i, found := slices.BinarySearchFunc(
-				pkg.Imports,
+				t.Imports,
 				importPkg,
 				func(a, b importPackage) int {
 					return strings.Compare(a.Name, b.Name)
 				},
 			)
 			if !found {
-				pkg.Imports = slices.Insert(pkg.Imports, i, importPkg)
+				t.Imports = slices.Insert(t.Imports, i, importPkg)
 			}
 		}
 	}
 
-	return &pkg, nil
+	if len(pkgsSrcs) > 1 {
+		var err ConflictingPackageError
+		for pkgName, srcs := range pkgsSrcs {
+			err.pkgs = append(err.pkgs, pkgName)
+			err.srcs = append(err.srcs, srcs)
+		}
+		return "", &err
+	}
+
+	for realName := range pkgsSrcs {
+		return realName, nil
+	}
+	return "", nil
 }
 
 // setupData creates an output directory containing a symbolic link to the test
@@ -347,13 +340,30 @@ func test(sdk *GoSDK) {
 
 	goSrcs, _, _, err := sortSrcs(attrs.Srcs)
 	if err != nil {
-		log.Fatalf("failed to enumerate source files: %v", err)
+		log.Fatalf("failed to enumerate internal source files: %v", err)
+	}
+	goXSrcs, _, _, err := sortSrcs(attrs.XSrcs)
+	if err != nil {
+		log.Fatalf("failed to enumerate external source files: %v", err)
 	}
 
-	pkg, err := findTestCases(attrs.PackageName, attrs.ImportPath, goSrcs)
+	pkg := &testPackage{ImportPath: attrs.ImportPath}
+	name, err := pkg.findTestCases("_test", attrs.ImportPath, goSrcs)
 	if err != nil {
 		log.Fatal(err)
 	}
+	xname, err := pkg.findTestCases("_xtest", attrs.ImportPath+"_test", goXSrcs)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(goSrcs) > 0 && len(goXSrcs) > 0 && xname != name+"_test" {
+		log.Fatalf(
+			"mismatched package names: expected %s, got %s",
+			name+"_test",
+			xname,
+		)
+	}
+
 	if sdk.Compatible("1.18") {
 		pkg.SupportsFuzz = true
 	}
@@ -366,7 +376,7 @@ func test(sdk *GoSDK) {
 		log.Fatal(err)
 	}
 
-	file, err := os.Create(filepath.Join(outDir, "test.go"))
+	file, err := os.Create(filepath.Join(outDir, "testmain.go"))
 	if err != nil {
 		log.Fatal(err)
 	}

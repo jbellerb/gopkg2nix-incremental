@@ -46,7 +46,7 @@ func (e *ConflictingPackageError) Error() string {
 
 	b.WriteString("found multiple packages:")
 	for i, pkgName := range e.pkgs {
-		fmt.Fprintf(&b, "\n    package \"%s\" (%s", pkgName, e.srcs[i][0])
+		fmt.Fprintf(&b, "\n  - package \"%s\" (%s", pkgName, e.srcs[i][0])
 		for _, src := range e.srcs[i][1:] {
 			fmt.Fprintf(&b, ", %s", src)
 		}
